@@ -27,3 +27,6 @@ venv/
 # Misc
 *.tmp
 *.bak
+# Headless test artifacts (browser profiles contain cache/state, never commit)
+tools/.chrome-profile*/
+tools/shots/

@@ -1,0 +1,1702 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>911 风格双门跑车 · 3D 数字车展</title>
+<style>
+  :root{
+    --bg:#0b0c10;
+    --glass:rgba(20,22,29,.62);
+    --glass-strong:rgba(24,26,34,.82);
+    --line:rgba(255,255,255,.09);
+    --line-strong:rgba(255,255,255,.16);
+    --txt:#e8eaf0;
+    --txt-dim:#9aa1b2;
+    --accent:#e5484d;
+    --accent-2:#ffb86b;
+    --ok:#46d39a;
+    --warn:#ff5a5f;
+    --radius:14px;
+    --shadow:0 18px 50px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
+    font-family:"PingFang SC","Microsoft YaHei","Segoe UI",system-ui,-apple-system,sans-serif;}
+  body{font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  #scene{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab;}
+  #scene:active{cursor:grabbing;}
+  .glass{background:var(--glass);border:1px solid var(--line);border-radius:var(--radius);
+    backdrop-filter:blur(16px) saturate(1.25);-webkit-backdrop-filter:blur(16px) saturate(1.25);
+    box-shadow:var(--shadow);}
+  /* ---------- 加载层 ---------- */
+  #loading{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:22px;background:radial-gradient(1200px 700px at 50% 30%,#171920 0%,#0b0c10 70%);
+    transition:opacity .5s ease;}
+  #loading.hide{opacity:0;pointer-events:none;}
+  .load-ring{width:54px;height:54px;border-radius:50%;border:3px solid rgba(255,255,255,.12);
+    border-top-color:var(--accent);animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #loadTitle{font-size:17px;letter-spacing:.12em;color:var(--txt);}
+  #loadMsg{color:var(--txt-dim);font-size:13px;min-height:20px;}
+  .load-bar{width:min(420px,72vw);height:5px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;}
+  #loadBar{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    transition:width .25s ease;}
+  #loadPct{color:var(--txt-dim);font-variant-numeric:tabular-nums;}
+  #loadRetry{display:none;gap:10px;}
+  #loadRetry button{display:inline-flex;}
+  /* ---------- 首屏提示 ---------- */
+  #hint{position:fixed;inset:0;z-index:90;display:flex;align-items:flex-end;justify-content:center;
+    padding-bottom:12vh;background:linear-gradient(180deg,rgba(11,12,16,.15),rgba(11,12,16,.78));
+    transition:opacity .45s ease;}
+  #hint.hide{opacity:0;pointer-events:none;}
+  .hint-card{padding:26px 30px;text-align:center;max-width:560px;}
+  .hint-card h2{font-size:22px;font-weight:600;letter-spacing:.04em;margin-bottom:10px;}
+  .hint-card p{color:var(--txt-dim);margin-bottom:18px;}
+  .hint-keys{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin-bottom:22px;color:var(--txt-dim);font-size:12.5px;}
+  .hint-keys b{color:var(--txt);font-weight:600;}
+  /* ---------- 按钮 ---------- */
+  button{font-family:inherit;font-size:13px;color:var(--txt);background:rgba(255,255,255,.06);
+    border:1px solid var(--line);border-radius:10px;padding:9px 14px;cursor:pointer;
+    transition:background .18s,border-color .18s,transform .12s;}
+  button:hover{background:rgba(255,255,255,.12);border-color:var(--line-strong);}
+  button:active{transform:scale(.97);}
+  button.primary{background:linear-gradient(135deg,var(--accent),#c7333a);border-color:transparent;font-weight:600;}
+  button.primary:hover{filter:brightness(1.1);}
+  button.active{background:rgba(229,72,77,.18);border-color:rgba(229,72,77,.55);color:#ffd9da;}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  /* ---------- 顶栏 ---------- */
+  #topbar{position:fixed;top:18px;left:20px;z-index:30;padding:14px 18px;max-width:min(440px,60vw);}
+  #topbar h1{font-size:16px;font-weight:600;letter-spacing:.06em;display:flex;align-items:center;gap:10px;}
+  #topbar h1::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 12px var(--accent);}
+  #topbar p{font-size:12px;color:var(--txt-dim);margin-top:3px;}
+  #modelBadge{position:fixed;top:18px;right:20px;z-index:30;padding:9px 14px;font-size:12px;color:var(--txt-dim);}
+  #modelBadge b{color:var(--accent-2);font-weight:600;}
+  /* ---------- 左侧控制面板 ---------- */
+  #panel{position:fixed;left:20px;top:50%;transform:translateY(-50%);z-index:30;width:248px;
+    padding:16px;display:flex;flex-direction:column;gap:14px;max-height:82vh;overflow:auto;}
+  #panel::-webkit-scrollbar{width:0;}
+  .panel-sec h3{font-size:12px;letter-spacing:.14em;color:var(--txt-dim);font-weight:600;margin-bottom:9px;
+    text-transform:uppercase;}
+  .part-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .part-grid button{padding:8px 6px;font-size:12.5px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .view-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .view-grid button{font-size:12.5px;padding:8px 6px;}
+  /* ---------- 规格卡 ---------- */
+  #spec{position:fixed;right:20px;top:50%;transform:translateY(-50%);z-index:30;width:252px;padding:16px;}
+  #spec h3{font-size:12px;letter-spacing:.14em;color:var(--txt-dim);font-weight:600;margin-bottom:10px;}
+  .spec-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12.5px;}
+  .spec-row:last-child{border-bottom:0;}
+  .spec-row span{color:var(--txt-dim);}
+  .spec-row b{font-weight:600;text-align:right;}
+  /* ---------- 热点 ---------- */
+  #hotspots{position:fixed;inset:0;z-index:20;pointer-events:none;}
+  .hotspot{position:absolute;pointer-events:auto;width:26px;height:26px;margin:-13px 0 0 -13px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .hotspot .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);
+    border:2px solid #fff;box-shadow:0 0 10px rgba(229,72,77,.9);position:relative;z-index:2;}
+  .hotspot .ping{position:absolute;inset:0;border-radius:50%;border:1.5px solid var(--accent);
+    animation:ping 1.8s cubic-bezier(.2,.6,.3,1) infinite;}
+  @keyframes ping{0%{transform:scale(.6);opacity:.9}80%,100%{transform:scale(2.1);opacity:0}}
+  .hotspot .hlabel{position:absolute;left:20px;top:50%;transform:translateY(-50%);white-space:nowrap;
+    padding:5px 10px;font-size:12px;border-radius:8px;opacity:0;pointer-events:none;
+    transition:opacity .15s;}
+  .hotspot:hover .hlabel{opacity:1;}
+  .hotspot.flip .hlabel{left:auto;right:20px;}
+  /* ---------- 气泡 ---------- */
+  #tooltip{position:fixed;z-index:40;pointer-events:none;padding:8px 12px;border-radius:10px;
+    background:var(--glass-strong);border:1px solid var(--line-strong);font-size:12.5px;
+    backdrop-filter:blur(12px);box-shadow:var(--shadow);opacity:0;transition:opacity .14s;max-width:230px;}
+  #tooltip.show{opacity:1;}
+  #tooltip b{display:block;font-size:13px;margin-bottom:2px;}
+  #tooltip span{color:var(--txt-dim);}
+  /* ---------- 底部仪表坞 ---------- */
+  #dock{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;
+    display:flex;align-items:center;gap:18px;padding:12px 18px;}
+  #gaugeWrap{position:relative;width:168px;height:96px;}
+  #gauge{width:168px;height:96px;overflow:visible;}
+  #gauge .tick{stroke:rgba(255,255,255,.28);stroke-width:1.5;}
+  #gauge .tick.major{stroke:rgba(255,255,255,.55);stroke-width:2;}
+  #gauge .tick.red{stroke:var(--warn);}
+  #gauge text{fill:var(--txt-dim);font-size:9px;}
+  #needle{transform-origin:84px 86px;transition:none;filter:drop-shadow(0 0 4px rgba(229,72,77,.8));}
+  #gauge.redline{animation:rflash .5s ease infinite;}
+  @keyframes rflash{0%,100%{filter:none}50%{filter:drop-shadow(0 0 10px rgba(255,90,95,.95))}}
+  #rpmText{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:13px;
+    font-variant-numeric:tabular-nums;}
+  #rpmText small{color:var(--txt-dim);font-size:10px;}
+  .dock-ctrl{display:flex;flex-direction:column;gap:9px;min-width:230px;}
+  .dock-btns{display:flex;gap:8px;}
+  .dock-btns button{flex:1;}
+  .slider-row{display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--txt-dim);}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:4px;border-radius:99px;
+    background:linear-gradient(90deg,var(--ok) 0%,var(--accent-2) 62%,var(--warn) 90%);outline:none;cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+    background:#fff;border:3px solid var(--accent);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5);}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#fff;
+    border:3px solid var(--accent);cursor:pointer;}
+  input[type=range]:disabled{opacity:.4;cursor:not-allowed;}
+  #redlineWarn{display:none;color:var(--warn);font-size:11.5px;font-weight:600;letter-spacing:.08em;
+    animation:rflash .5s ease infinite;}
+  #redlineWarn.show{display:inline;}
+  /* ---------- 发动机模式面板 ---------- */
+  #enginePanel{position:fixed;right:20px;bottom:18px;z-index:30;width:264px;padding:16px;display:none;
+    flex-direction:column;gap:12px;}
+  #enginePanel.show{display:flex;}
+  #enginePanel h3{font-size:12px;letter-spacing:.14em;color:var(--txt-dim);font-weight:600;}
+  .eng-labels{position:fixed;inset:0;z-index:19;pointer-events:none;}
+  .eng-label{position:absolute;padding:4px 9px;font-size:11.5px;border-radius:7px;
+    background:rgba(10,11,15,.78);border:1px solid var(--line-strong);color:var(--accent-2);
+    white-space:nowrap;transform:translate(-50%,-130%);transition:opacity .2s;}
+  .eng-label::after{content:"";position:absolute;left:50%;top:100%;width:1px;height:26px;
+    background:linear-gradient(rgba(255,184,107,.7),transparent);}
+  /* ---------- Toast ---------- */
+  #toast{position:fixed;left:50%;top:84px;transform:translateX(-50%) translateY(-8px);z-index:60;
+    padding:10px 18px;border-radius:10px;opacity:0;transition:opacity .25s,transform .25s;
+    background:var(--glass-strong);border:1px solid var(--line-strong);font-size:13px;pointer-events:none;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* ---------- 响应式 ---------- */
+  @media (max-width:900px){
+    #spec{display:none;}
+    #panel{width:208px;padding:12px;}
+    #dock{gap:10px;padding:10px 12px;}
+    .dock-ctrl{min-width:170px;}
+  }
+  @media (max-width:620px){
+    #panel{left:10px;top:auto;bottom:128px;transform:none;width:188px;max-height:46vh;}
+    #topbar{left:10px;top:10px;max-width:70vw;padding:10px 12px;}
+    #modelBadge{display:none;}
+    #enginePanel{right:10px;width:210px;}
+    #dock{bottom:10px;padding:8px 10px;gap:8px;}
+    #gaugeWrap,#gauge{width:132px;height:76px;}
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- 加载层 -->
+<div id="loading">
+  <div class="load-ring"></div>
+  <div id="loadTitle">正在加载数字展车</div>
+  <div class="load-bar"><div id="loadBar"></div></div>
+  <div><span id="loadPct">0%</span> · <span id="loadMsg">初始化渲染器</span></div>
+  <div id="loadRetry">
+    <button id="btnRetry" class="primary">重新加载</button>
+    <button id="btnFallback">使用程序化展车</button>
+  </div>
+</div>
+
+<!-- 首屏提示 -->
+<div id="hint" class="hide">
+  <div class="hint-card glass">
+    <h2>911 风格 · 后置水平对置六缸双门跑车</h2>
+    <p>暗调影棚数字车展，可开合车身部件、拆解发动机并聆听原生 WebAudio 六缸声浪。</p>
+    <div class="hint-keys">
+      <span><b>拖拽</b> 环绕查看</span>
+      <span><b>滚轮</b> 缩放距离</span>
+      <span><b>点击部件 / 热点</b> 开合</span>
+      <span><b>Esc</b> 全部关闭</span>
+    </div>
+    <button id="btnEnter" class="primary">进入车展（唤醒音频）</button>
+  </div>
+</div>
+
+<!-- 顶栏 -->
+<div id="topbar" class="glass">
+  <h1>911 风格双门跑车 · 3D 车展</h1>
+  <p>后置引擎 / 水平对置六缸 / 双门 2+2 快背</p>
+</div>
+<div id="modelBadge" class="glass">模型来源：<b id="modelSrc">GLB 资产</b></div>
+
+<!-- 左：部件与视角 -->
+<div id="panel" class="glass">
+  <div class="panel-sec">
+    <h3>部件控制</h3>
+    <div class="part-grid">
+      <button data-part="doorL">左车门</button>
+      <button data-part="doorR">右车门</button>
+      <button data-part="windowL">左车窗</button>
+      <button data-part="windowR">右车窗</button>
+      <button data-part="frunk">前备箱盖</button>
+      <button data-part="decklid">机舱盖</button>
+    </div>
+    <div class="row2" style="margin-top:8px">
+      <button id="btnOpenAll" class="primary">一键全开</button>
+      <button id="btnCloseAll">一键全关</button>
+    </div>
+  </div>
+  <div class="panel-sec">
+    <h3>视角</h3>
+    <div class="view-grid">
+      <button data-view="front3q">前 45°</button>
+      <button data-view="side">正侧视</button>
+      <button data-view="rear3q">后 45°</button>
+      <button data-view="top">高位俯视</button>
+    </div>
+  </div>
+  <div class="panel-sec">
+    <h3>动力单元</h3>
+    <button id="btnEngineMode" style="width:100%">进入发动机透视模式</button>
+  </div>
+</div>
+
+<!-- 右：规格卡 -->
+<div id="spec" class="glass">
+  <h3>车辆规格</h3>
+  <div class="spec-row"><span>布局</span><b>后置后驱 RR</b></div>
+  <div class="spec-row"><span>发动机</span><b>水平对置六缸</b></div>
+  <div class="spec-row"><span>排量</span><b>3.0 L 双涡轮</b></div>
+  <div class="spec-row"><span>最大功率</span><b>285 kW / 6500 rpm</b></div>
+  <div class="spec-row"><span>怠速 / 红线</span><b>900 / 6500 rpm</b></div>
+  <div class="spec-row"><span>转速区间</span><b>800 – 7200 rpm</b></div>
+  <div class="spec-row"><span>变速箱</span><b>7 速 PDK</b></div>
+  <div class="spec-row"><span>整备质量</span><b>1450 kg</b></div>
+  <div class="spec-row"><span>轮毂</span><b>前 20″ / 后 21″</b></div>
+</div>
+
+<!-- 热点 / 标注层 -->
+<div id="hotspots"></div>
+<div class="eng-labels" id="engLabels"></div>
+
+<!-- 悬停气泡 -->
+<div id="tooltip"><b id="ttTitle"></b><span id="ttHint"></span></div>
+
+<!-- 底部仪表坞 -->
+<div id="dock" class="glass">
+  <div id="gaugeWrap">
+    <svg id="gauge" viewBox="0 0 168 96">
+      <path d="M14 86 A70 70 0 0 1 154 86" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="6" stroke-linecap="round"/>
+      <path id="redArc" d="M133.4 40.4 A70 70 0 0 1 150.5 70.6" fill="none" stroke="var(--warn)" stroke-width="6" stroke-linecap="round" opacity=".85"/>
+      <g id="ticks"></g>
+      <g id="needle">
+        <line x1="84" y1="86" x2="84" y2="28" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="84" cy="86" r="5" fill="#1d1f27" stroke="var(--accent)" stroke-width="2"/>
+      </g>
+    </svg>
+    <div id="rpmText">OFF <small>rpm</small></div>
+  </div>
+  <div class="dock-ctrl">
+    <div class="dock-btns">
+      <button id="btnStart" class="primary">启动发动机</button>
+      <button id="btnMute">🔊 声浪开</button>
+    </div>
+    <div class="slider-row">
+      <span>800</span>
+      <input id="rpmSlider" type="range" min="800" max="7200" step="50" value="900" disabled />
+      <span>7200</span>
+      <span id="redlineWarn">红线告警</span>
+    </div>
+  </div>
+</div>
+
+<!-- 发动机模式面板 -->
+<div id="enginePanel" class="glass">
+  <h3>发动机透视模式</h3>
+  <div class="slider-row">
+    <span>爆炸</span>
+    <input id="explodeSlider" type="range" min="0" max="100" value="0" />
+  </div>
+  <div class="row2">
+    <button id="btnBodyXray" class="active">车身透视</button>
+    <button id="btnBodyHide">车身隐藏</button>
+  </div>
+  <div class="row2">
+    <button id="btnLabelToggle" class="active">标注开</button>
+    <button id="btnExitEngine">退出 (Esc)</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+
+/* ============================================================
+ * 通用工具
+ * ============================================================ */
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const easeInOutCubic = (t) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const D2R = Math.PI / 180;
+
+function toast(msg, ms = 2200) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+/* 轻量补间管理器：所有部件并发开合 */
+const tweens = [];
+function addTween({ duration = 900, onUpdate, ease = easeInOutCubic, onComplete }) {
+  tweens.push({ t: 0, duration, onUpdate, ease, onComplete });
+}
+function updateTweens(dtMs) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i];
+    tw.t += dtMs;
+    const k = clamp(tw.t / tw.duration, 0, 1);
+    tw.onUpdate(tw.ease(k), k);
+    if (k >= 1) {
+      tw.onComplete && tw.onComplete();
+      tweens.splice(i, 1);
+    }
+  }
+}
+function setCylinderBetween(mesh, a, b) {
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const len = dir.length();
+  if (len < 1e-6) return;
+  mesh.position.copy(a).addScaledVector(dir, .5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  mesh.scale.set(1, len, 1);
+}
+
+/* ============================================================
+ * @@CAR_MODULE_START@@
+ * 程序化 911 风格跑车车厂（浏览器与 Node 导出 GLB 共用此段，勿改标记）
+ * 坐标系：+Z 车头，+Y 上，单位米；轮胎接地 y=0
+ * ============================================================ */
+function __buildCar(THREE, RoundedBoxGeometry) {
+  const rb = (w, h, d, r = .04, s = 3) => new RoundedBoxGeometry(w, h, d, s, r);
+
+  /* ---------- 材质 ---------- */
+  const paint = new THREE.MeshPhysicalMaterial({
+    color: 0x8c1420, metalness: .38, roughness: .24,
+    clearcoat: 1, clearcoatRoughness: .06, envMapIntensity: 1.35,
+  });
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: 0x10151b, metalness: 0, roughness: .05,
+    transmission: .82, thickness: .03, ior: 1.5,
+    transparent: true, opacity: .52, side: THREE.DoubleSide, envMapIntensity: 1.1,
+  });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xd8dde4, metalness: 1, roughness: .18 });
+  const darkTrim = new THREE.MeshStandardMaterial({ color: 0x14161b, metalness: .5, roughness: .5 });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x0c0d0f, metalness: .05, roughness: .85 });
+  const rimMat = new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: .95, roughness: .28 });
+  const leather = new THREE.MeshStandardMaterial({ color: 0x1d1a18, metalness: .1, roughness: .75 });
+  const alu = new THREE.MeshStandardMaterial({ color: 0xb4bac2, metalness: .9, roughness: .34 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0x6f7680, metalness: .95, roughness: .25 });
+  const fanMat = new THREE.MeshStandardMaterial({ color: 0x22252b, metalness: .6, roughness: .5 });
+  const caliperMat = new THREE.MeshStandardMaterial({ color: 0xd8262c, metalness: .4, roughness: .4 });
+  const headLamp = new THREE.MeshStandardMaterial({ color: 0xeef4ff, emissive: 0xcfe0ff, emissiveIntensity: 1.4, roughness: .15 });
+  const tailLamp = new THREE.MeshStandardMaterial({ color: 0x7a0d12, emissive: 0xff2230, emissiveIntensity: 1.6, roughness: .3 });
+  const amber = new THREE.MeshStandardMaterial({ color: 0x3a2408, emissive: 0xffa530, emissiveIntensity: 1.2 });
+
+  const root = new THREE.Group();
+  root.name = 'CarRoot';
+  const bodyMeshes = [];
+  const glassMeshes = [];
+  const shadowed = (m) => { m.castShadow = true; m.receiveShadow = true; return m; };
+  const addBody = (mesh, isGlass = false) => {
+    shadowed(mesh);
+    bodyMeshes.push(mesh);
+    if (isGlass) glassMeshes.push(mesh);
+    return mesh;
+  };
+
+  /* ---------- 下车身：侧轮廓挤出（911 蛙式身段） ---------- */
+  const profile = new THREE.Shape();
+  profile.moveTo(-2.16, .30);
+  profile.lineTo(-2.20, .58);
+  profile.quadraticCurveTo(-2.18, .80, -1.92, .85);
+  profile.lineTo(-.95, .87);
+  profile.quadraticCurveTo(.20, .88, .66, .83);
+  profile.quadraticCurveTo(1.25, .77, 1.72, .68);
+  profile.quadraticCurveTo(2.10, .60, 2.16, .44);
+  profile.quadraticCurveTo(2.20, .34, 2.06, .29);
+  profile.lineTo(-2.06, .27);
+  profile.quadraticCurveTo(-2.14, .27, -2.16, .30);
+  const shellGeo = new THREE.ExtrudeGeometry(profile, {
+    depth: 1.56, steps: 1, bevelEnabled: true, bevelThickness: .09,
+    bevelSize: .09, bevelSegments: 4, curveSegments: 18,
+  });
+  shellGeo.rotateY(-Math.PI / 2);      // 形状 x → 世界 z（车头 +z）
+  shellGeo.translate(-.78, 0, 0);      // 宽度居中
+  const shell = addBody(new THREE.Mesh(shellGeo, paint));
+  shell.name = 'BodyShell';
+  root.add(shell);
+
+  /* ---------- 翼子板鼓包 ---------- */
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const fender = addBody(new THREE.Mesh(new THREE.SphereGeometry(.46, 24, 16), paint));
+    fender.name = 'Fender';
+    fender.scale.set(.78, .42, 1.05);
+    fender.position.set(sx * .72, .62, sz * 1.42);
+    root.add(fender);
+  }
+
+  /* ---------- 玻璃座舱（固定的前挡 / 后挡 / 车顶） ---------- */
+  const cabinShape = new THREE.Shape();
+  cabinShape.moveTo(.78, .83);
+  cabinShape.quadraticCurveTo(.55, 1.06, .22, 1.23);
+  cabinShape.lineTo(-.92, 1.22);
+  cabinShape.quadraticCurveTo(-1.28, 1.08, -1.52, .87);
+  cabinShape.lineTo(.78, .83);
+  const cabinGeo = new THREE.ExtrudeGeometry(cabinShape, {
+    depth: 1.30, steps: 1, bevelEnabled: true, bevelThickness: .05,
+    bevelSize: .05, bevelSegments: 3, curveSegments: 16,
+  });
+  cabinGeo.rotateY(-Math.PI / 2);
+  cabinGeo.translate(-.65, 0, 0);
+  const cabin = addBody(new THREE.Mesh(cabinGeo, glass), true);
+  cabin.name = 'Greenhouse';
+  root.add(cabin);
+
+  const roof = addBody(new THREE.Mesh(rb(1.22, .06, 1.02, .03), paint));
+  roof.name = 'RoofPanel';
+  roof.position.set(0, 1.235, -.36);
+  root.add(roof);
+  // A / C 柱
+  for (const sx of [-1, 1]) {
+    const aPillar = addBody(new THREE.Mesh(rb(.05, .46, .07, .02), paint));
+    aPillar.position.set(sx * .66, 1.02, .55);
+    aPillar.rotation.x = -32 * D2R;
+    root.add(aPillar);
+    const cPillar = addBody(new THREE.Mesh(rb(.06, .42, .09, .02), paint));
+    cPillar.position.set(sx * .66, 1.02, -1.18);
+    cPillar.rotation.x = 30 * D2R;
+    root.add(cPillar);
+  }
+
+  /* ---------- 车门（pivot 在前缘铰链，绕 Y 外摆；外表面与翼子板齐平） ---------- */
+  function makeDoor(side) {
+    const pivot = new THREE.Group();
+    pivot.name = side < 0 ? 'DoorL_Pivot' : 'DoorR_Pivot';
+    pivot.position.set(side * .80, .55, .56);
+    // 深色门洞密封框（略大于门板，露出一圈边界）
+    const seal = new THREE.Mesh(rb(.03, .54, .99, .025), darkTrim);
+    seal.position.set(-side * .012, 0, -.47);
+    pivot.add(seal);
+    const panel = addBody(new THREE.Mesh(rb(.04, .48, .92, .028), paint));
+    panel.name = side < 0 ? 'DoorL' : 'DoorR';
+    panel.position.set(side * .008, 0, -.47);
+    pivot.add(panel);
+    const handle = new THREE.Mesh(rb(.018, .028, .13, .008), chrome);
+    handle.position.set(side * .032, .07, -.6);
+    pivot.add(handle);
+    // 可升降侧窗（pivot 在窗顶，滑入车门内；贴合座舱侧玻璃斜面）
+    const winPivot = new THREE.Group();
+    winPivot.name = side < 0 ? 'WindowL_Pivot' : 'WindowR_Pivot';
+    winPivot.position.set(side * .665, 1.18, -.18);
+    const winGlass = addBody(new THREE.Mesh(rb(.018, .30, .86, .01), glass), true);
+    winGlass.name = side < 0 ? 'WindowL' : 'WindowR';
+    winGlass.position.set(0, -.15, -.02);
+    winPivot.add(winGlass);
+    root.add(pivot, winPivot);
+    return { pivot, winPivot };
+  }
+  const dL = makeDoor(-1), dR = makeDoor(1);
+
+  /* ---------- 前备箱盖（铰链在后缘，绕 X 上掀；贴合车头曲面） ---------- */
+  const frunkPivot = new THREE.Group();
+  frunkPivot.name = 'Frunk_Pivot';
+  frunkPivot.position.set(0, .75, .82);
+  const frunkLid = addBody(new THREE.Mesh(rb(1.36, .04, .96, .022), paint));
+  frunkLid.name = 'FrunkLid';
+  frunkLid.position.set(0, .0, .48);
+  frunkPivot.add(frunkLid);
+  // 前备箱内饰（开启后可见）
+  const frunkTub = new THREE.Mesh(rb(1.18, .16, .7, .05), darkTrim);
+  shadowed(frunkTub);
+  frunkTub.position.set(0, .6, 1.34);
+  root.add(frunkPivot, frunkTub);
+
+  /* ---------- 后置机舱盖（铰链在尾端，绕 X 上掀；贴合尾箱曲面） ---------- */
+  const deckPivot = new THREE.Group();
+  deckPivot.name = 'Decklid_Pivot';
+  deckPivot.position.set(0, .82, -1.92);
+  const deckLid = addBody(new THREE.Mesh(rb(1.32, .04, .80, .022), paint));
+  deckLid.name = 'Decklid';
+  deckLid.position.set(0, 0, .40);
+  deckPivot.add(deckLid);
+  for (let i = 0; i < 6; i++) {                 // 后盖散热格栅
+    const slat = new THREE.Mesh(rb(.92, .012, .032, .006), darkTrim);
+    slat.position.set(0, .026, .16 + i * .072);
+    deckPivot.add(slat);
+  }
+  const spoiler = addBody(new THREE.Mesh(rb(1.28, .035, .11, .018), paint));
+  spoiler.name = 'Spoiler';
+  spoiler.position.set(0, .87, -1.99);
+  root.add(deckPivot, spoiler);
+
+  /* ---------- 灯组 / 排气 ---------- */
+  for (const sx of [-1, 1]) {
+    // 灯腔（暗色椭圆，嵌入翼子板）
+    const housing = new THREE.Mesh(new THREE.SphereGeometry(.17, 20, 14), darkTrim);
+    housing.scale.set(1.05, .8, .6);
+    housing.position.set(sx * .55, .61, 2.05);
+    shadowed(housing);
+    root.add(housing);
+    // 透镜灯（略小、靠外）
+    const head = new THREE.Mesh(new THREE.SphereGeometry(.125, 20, 14), headLamp);
+    head.scale.set(1.0, .78, .55);
+    head.position.set(sx * .55, .61, 2.08);
+    shadowed(head);
+    root.add(head);
+    const indicator = new THREE.Mesh(rb(.07, .04, .03, .012), amber);
+    indicator.position.set(sx * .74, .53, 2.12);
+    root.add(indicator);
+    const exh = new THREE.Mesh(new THREE.CylinderGeometry(.055, .055, .22, 16), chrome);
+    exh.rotation.x = Math.PI / 2;
+    exh.position.set(sx * .34, .30, -2.16);
+    root.add(exh);
+  }
+  const tailBar = new THREE.Mesh(rb(1.35, .07, .03, .015), tailLamp);
+  tailBar.position.set(0, .70, -2.18);
+  root.add(tailBar);
+
+  /* ---------- 内饰（透过玻璃可见） ---------- */
+  const dash = new THREE.Mesh(rb(1.25, .16, .28, .05), darkTrim);
+  shadowed(dash);
+  dash.position.set(0, .92, .48);
+  root.add(dash);
+  for (const sx of [-1, 1]) {
+    const seat = new THREE.Group();
+    const base = new THREE.Mesh(rb(.36, .12, .42, .05), leather);
+    base.position.y = .06;
+    const back = new THREE.Mesh(rb(.36, .46, .12, .05), leather);
+    back.position.set(0, .32, -.16);
+    back.rotation.x = .18;
+    seat.add(base, back);
+    seat.position.set(sx * .34, .82, -.08);
+    seat.traverse(o => { if (o.isMesh) shadowed(o); });
+    root.add(seat);
+  }
+  const steering = new THREE.Mesh(new THREE.TorusGeometry(.13, .018, 10, 28), darkTrim);
+  steering.position.set(-.36, .98, .42);
+  steering.rotation.x = -1.05;
+  root.add(steering);
+  const tunnel = new THREE.Mesh(rb(.18, .14, .9, .04), darkTrim);
+  tunnel.position.set(0, .84, -.05);
+  root.add(tunnel);
+
+  /* ---------- 车轮（含轮毂 / 刹车盘 / 卡钳） ---------- */
+  const wheelGroups = [];
+  function makeWheel(x, z, isRear) {
+    const g = new THREE.Group();
+    g.name = 'Wheel';
+    g.position.set(x, .40, z);
+    const tire = new THREE.Mesh(new THREE.TorusGeometry(.30, .105, 14, 36), rubber);
+    tire.rotation.y = Math.PI / 2;
+    shadowed(tire);
+    g.add(tire);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(.215, .215, .13, 28), rimMat);
+    rim.rotation.z = Math.PI / 2;
+    shadowed(rim);
+    g.add(rim);
+    for (let i = 0; i < 5; i++) {
+      const spoke = new THREE.Mesh(rb(.05, .34, .05, .015), rimMat);
+      spoke.rotation.x = i * Math.PI * 2 / 5;
+      g.add(spoke);
+    }
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(.17, .17, .04, 24), steel);
+    disc.rotation.z = Math.PI / 2;
+    g.add(disc);
+    const caliper = new THREE.Mesh(rb(.07, .14, .08, .02), caliperMat);
+    caliper.position.set(x < 0 ? .09 : -.09, .12, 0);
+    g.add(caliper);
+    const well = new THREE.Mesh(new THREE.CylinderGeometry(.43, .43, .02, 28), darkTrim);
+    well.rotation.z = Math.PI / 2;
+    well.position.set(x > 0 ? -.06 : .06, 0, 0);
+    g.add(well);
+    // 车身同色轮拱罩：半圆环覆盖轮胎上缘，使车轮视觉上收进翼子板
+    const arch = addBody(new THREE.Mesh(
+      new THREE.TorusGeometry(.415, .075, 12, 28, Math.PI), paint));
+    arch.name = 'WheelArch';
+    arch.rotation.y = Math.PI / 2;
+    arch.position.set(x + (x > 0 ? -.02 : .02), .40, z);
+    root.add(arch);
+    root.add(g);
+    wheelGroups.push(g);
+  }
+  makeWheel(-.84, 1.42, false); makeWheel(.84, 1.42, false);
+  makeWheel(-.84, -1.42, true); makeWheel(.84, -1.42, true);
+
+  /* ============================================================
+   * 水平对置六缸发动机（后置，曲轴沿 z，气缸沿 ±x）
+   * ============================================================ */
+  const engine = new THREE.Group();
+  engine.name = 'Flat6_Engine';
+  engine.position.set(0, .50, -1.32);
+  root.add(engine);
+
+  const caseMesh = new THREE.Mesh(rb(1.02, .32, .74, .06), alu);
+  caseMesh.name = 'Crankcase';
+  shadowed(caseMesh);
+  engine.add(caseMesh);
+  const sump = new THREE.Mesh(rb(.5, .16, .5, .04), alu);
+  sump.name = 'OilSump';
+  sump.position.y = -.24;
+  engine.add(sump);
+
+  const crank = new THREE.Group();
+  crank.name = 'Crankshaft';
+  engine.add(crank);
+  const shaftGeo = new THREE.CylinderGeometry(.028, .028, .78, 12);
+  shaftGeo.rotateX(Math.PI / 2);
+  const shaft = new THREE.Mesh(shaftGeo, steel);
+  crank.add(shaft);
+  const cylZ = [-.26, 0, .26];
+  const throws = [0, 120 * D2R, 240 * D2R];
+  for (const z of cylZ) {
+    const cw = new THREE.Mesh(new THREE.CylinderGeometry(.095, .095, .035, 20), steel);
+    cw.rotation.x = Math.PI / 2;
+    cw.position.z = z;
+    crank.add(cw);
+  }
+
+  const explodables = [];
+  const markExplode = (obj, offset) => explodables.push({
+    obj, base: obj.position.clone(), offset: new THREE.Vector3(...offset),
+  });
+  markExplode(caseMesh, [0, -.28, 0]);
+  markExplode(sump, [0, -.5, 0]);
+
+  const rods = [];
+  const R_CRANK = .058, L_ROD = .205;
+  for (const bank of [-1, 1]) {
+    cylZ.forEach((z, idx) => {
+      const beta = throws[idx];
+      const barrel = new THREE.Group();
+      barrel.name = 'CylinderBarrel';
+      barrel.position.set(bank * .30, 0, z);
+      const barrelMesh = new THREE.Mesh(new THREE.CylinderGeometry(.088, .092, .30, 20), alu);
+      barrelMesh.rotation.z = Math.PI / 2;
+      shadowed(barrelMesh);
+      barrel.add(barrelMesh);
+      for (let f = 0; f < 5; f++) {                       // 风冷散热片
+        const fin = new THREE.Mesh(new THREE.CylinderGeometry(.102, .102, .012, 20), alu);
+        fin.rotation.z = Math.PI / 2;
+        fin.position.x = -.11 + f * .055;
+        barrel.add(fin);
+      }
+      const head = new THREE.Group();
+      head.name = 'CylinderHead';
+      head.position.set(bank * .56, 0, z);
+      const headMesh = new THREE.Mesh(rb(.13, .19, .20, .03), alu);
+      shadowed(headMesh);
+      head.add(headMesh);
+      const plug = new THREE.Mesh(new THREE.CylinderGeometry(.014, .014, .06, 8),
+        new THREE.MeshStandardMaterial({ color: 0xeeeecc, emissive: 0x887722, emissiveIntensity: .4 }));
+      plug.position.y = .11;
+      head.add(plug);
+      const piston = new THREE.Mesh(new THREE.CylinderGeometry(.072, .072, .11, 18), steel);
+      piston.rotation.z = Math.PI / 2;
+      const rodMesh = new THREE.Mesh(new THREE.CylinderGeometry(.016, .016, 1, 8), steel);
+      shadowed(rodMesh);
+      engine.add(barrel, head, piston, rodMesh);
+      markExplode(barrel, [bank * .32, 0, 0]);
+      markExplode(head, [bank * .58, .06, 0]);
+      rods.push({ bank, z, beta, piston, rodMesh });
+    });
+  }
+
+  // 顶部散热风扇（轴沿 y）
+  const fan = new THREE.Group();
+  fan.name = 'CoolingFan';
+  fan.position.set(0, .26, .02);
+  const fanRing = new THREE.Mesh(new THREE.TorusGeometry(.15, .02, 8, 28), fanMat);
+  fanRing.rotation.x = Math.PI / 2;
+  fan.add(fanRing);
+  for (let i = 0; i < 9; i++) {
+    const blade = new THREE.Mesh(rb(.13, .012, .05, .006), fanMat);
+    blade.position.x = .08;
+    blade.rotation.y = i * Math.PI * 2 / 9 + .35;
+    fan.add(blade);
+  }
+  engine.add(fan);
+  markExplode(fan, [0, .48, 0]);
+  // 进气风室
+  const plenum = new THREE.Mesh(rb(.5, .12, .4, .04), alu);
+  plenum.name = 'IntakePlenum';
+  plenum.position.set(0, .17, -.02);
+  engine.add(plenum);
+  markExplode(plenum, [0, .38, .18]);
+  // 双涡轮 + 管路
+  for (const sx of [-1, 1]) {
+    const turbo = new THREE.Group();
+    turbo.name = 'Turbocharger';
+    turbo.position.set(sx * .42, -.16, .18);
+    const snail = new THREE.Mesh(new THREE.CylinderGeometry(.085, .085, .1, 18), steel);
+    snail.rotation.z = Math.PI / 2;
+    turbo.add(snail);
+    engine.add(turbo);
+    markExplode(turbo, [sx * .5, -.12, .25]);
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(sx * .45, -.1, .12),
+      new THREE.Vector3(sx * .55, -.02, -.05),
+      new THREE.Vector3(sx * .5, .08, -.2),
+    ]);
+    const pipe = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, .022, 8), steel);
+    engine.add(pipe);
+  }
+
+  // 发动机标注锚点
+  const anchors = {};
+  const mkAnchor = (name, pos) => {
+    const a = new THREE.Object3D();
+    a.name = 'Anchor_' + name;
+    a.position.set(...pos);
+    engine.add(a);
+    anchors[name] = a;
+  };
+  mkAnchor('fan', [0, .34, .02]);
+  mkAnchor('crank', [0, -.02, .34]);
+  mkAnchor('pistonR', [.42, 0, 0]);
+  mkAnchor('pistonL', [-.42, 0, 0]);
+  mkAnchor('headR', [.62, .05, .26]);
+  mkAnchor('headL', [-.62, .05, -.26]);
+  mkAnchor('case', [0, -.18, 0]);
+  mkAnchor('turboR', [.48, -.16, .28]);
+
+  /* ---------- 热点锚点（跟随部件运动） ---------- */
+  const hotspots = [];
+  const mkHotspot = (id, label, hint, parent, pos) => {
+    const a = new THREE.Object3D();
+    a.name = 'Hotspot_' + id;
+    a.position.set(...pos);
+    parent.add(a);
+    hotspots.push({ id, label, hint, anchor: a });
+  };
+  mkHotspot('doorL', '左车门', '点击开合（铰链式 68°）', dL.pivot, [0, .28, -.5]);
+  mkHotspot('doorR', '右车门', '点击开合（铰链式 68°）', dR.pivot, [0, .28, -.5]);
+  mkHotspot('windowL', '左车窗', '点击升降（电动车窗）', dL.winPivot, [0, 0, -.4]);
+  mkHotspot('windowR', '右车窗', '点击升降（电动车窗）', dR.winPivot, [0, 0, -.4]);
+  mkHotspot('frunk', '前备箱', '点击开启前备箱盖', frunkPivot, [0, .04, .5]);
+  mkHotspot('decklid', '后置机舱盖', '点击开启，露出水平对置六缸', deckPivot, [0, .05, .4]);
+  mkHotspot('engine', '水平对置六缸发动机', '进入发动机透视模式', engine, [0, .3, 0]);
+  mkHotspot('wheelFL', '前轮 · 20″', '点击查看车轮转动', wheelGroups[0], [0, .34, 0]);
+  mkHotspot('wheelFR', '前轮 · 20″', '点击查看车轮转动', wheelGroups[1], [0, .34, 0]);
+  mkHotspot('wheelRL', '后轮 · 21″', '点击查看车轮转动', wheelGroups[2], [0, .34, 0]);
+  mkHotspot('wheelRR', '后轮 · 21″', '点击查看车轮转动', wheelGroups[3], [0, .34, 0]);
+
+  /* ---------- 发动机运转动画 ---------- */
+  let alpha = 0;
+  const _pin = new THREE.Vector3(), _pp = new THREE.Vector3(), _pv = new THREE.Vector3();
+  function updateEngine(rpmNorm, dt, running, shakeAmt) {
+    if (running) alpha += dt * rpmNorm * Math.PI * 2 / 60;   // rpm → 曲轴弧度
+    crank.rotation.z = alpha;
+    fan.rotation.y = -alpha * 1.25;
+    for (const r of rods) {
+      const ang = alpha + r.beta;
+      const xcp = R_CRANK * Math.cos(ang);
+      const ycp = R_CRANK * Math.sin(ang);
+      const xp = xcp + r.bank * Math.sqrt(Math.max(0, L_ROD * L_ROD - ycp * ycp));
+      r.piston.position.set(xp, 0, r.z);
+      _pin.set(xcp, ycp, r.z);
+      _pp.set(xp, 0, r.z);
+      setCylinderBetween(r.rodMesh, _pin, _pv.copy(_pp));
+    }
+    // 整车抖动随转速上升
+    const s = shakeAmt;
+    root.position.set((Math.random() - .5) * s, (Math.random() - .5) * s * .6, 0);
+  }
+
+  return {
+    root,
+    parts: {
+      doorL:   { pivot: dL.pivot,    axis: 'y', openAngle: 68 * D2R,  isOpen: false },
+      doorR:   { pivot: dR.pivot,    axis: 'y', openAngle: -68 * D2R, isOpen: false },
+      windowL: { pivot: dL.winPivot, axis: 'slideY', slide: -.34,     isOpen: false },
+      windowR: { pivot: dR.winPivot, axis: 'slideY', slide: -.34,     isOpen: false },
+      frunk:   { pivot: frunkPivot,  axis: 'x', openAngle: -55 * D2R, isOpen: false },
+      decklid: { pivot: deckPivot,   axis: 'x', openAngle: -58 * D2R, isOpen: false },
+    },
+    engine: { group: engine, update: updateEngine, explodables, anchors, fan, crank },
+    wheelGroups, bodyMeshes, glassMeshes, hotspots,
+    materials: { paint, glass, chrome, rubber, alu, steel, headLamp, tailLamp },
+  };
+}
+/* @@CAR_MODULE_END@@ */
+
+/* ============================================================
+ * 渲染器 / 场景 / 相机
+ * ============================================================ */
+const canvas = $('#scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0c10);
+scene.fog = new THREE.Fog(0x0b0c10, 11, 24);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, .1, 80);
+const VIEW_TARGET = new THREE.Vector3(0, .72, 0);
+camera.position.set(4.7, 2.35, 5.4);
+
+const controls = new OrbitControls(camera, canvas);
+controls.target.copy(VIEW_TARGET);
+controls.enablePan = false;
+controls.enableDamping = true;
+controls.dampingFactor = .06;
+controls.minDistance = 2.6;
+controls.maxDistance = 9;
+controls.minPolarAngle = .22;
+controls.maxPolarAngle = 1.48;
+controls.autoRotateSpeed = .65;
+
+/* ---------- 程序化 PMREM 环境（暗调影棚） ---------- */
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envTex = pmrem.fromScene(new RoomEnvironment(), .04).texture;
+scene.environment = envTex;
+
+/* ---------- 灯光 ---------- */
+RectAreaLightUniformsLib.init();
+scene.add(new THREE.HemisphereLight(0x9fb4d8, 0x141418, .55));
+const keyLight = new THREE.SpotLight(0xffffff, 420, 22, .52, .55, 1.4);
+keyLight.position.set(3.6, 6.2, 2.8);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.bias = -.0004;
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 18;
+scene.add(keyLight);
+const rimLight = new THREE.SpotLight(0x8fb0ff, 200, 18, .6, .6, 1.6);
+rimLight.position.set(-4.2, 3.6, -4.4);
+scene.add(rimLight);
+const stripL = new THREE.RectAreaLight(0xffffff, 6.5, 4.2, .5);
+stripL.position.set(-2.6, 4.4, .6);
+stripL.lookAt(0, .6, 0);
+scene.add(stripL);
+const stripR = new THREE.RectAreaLight(0xffe2c2, 4.2, 3.2, .45);
+stripR.position.set(2.8, 4.0, -1.6);
+stripR.lookAt(0, .6, 0);
+scene.add(stripR);
+
+/* ---------- 圆展台 + 地面倒影 + 灯带 ---------- */
+const platform = new THREE.Mesh(
+  new THREE.CylinderGeometry(3.35, 3.45, .12, 96),
+  new THREE.MeshPhysicalMaterial({ color: 0x17191f, metalness: .55, roughness: .32, clearcoat: .8, clearcoatRoughness: .18 })
+);
+platform.position.y = -.06;
+platform.receiveShadow = true;
+scene.add(platform);
+const ring = new THREE.Mesh(new THREE.TorusGeometry(3.36, .018, 10, 128),
+  new THREE.MeshBasicMaterial({ color: 0xe5484d }));
+ring.rotation.x = Math.PI / 2;
+ring.position.y = .005;
+scene.add(ring);
+
+const reflector = new Reflector(new THREE.CircleGeometry(9, 72), {
+  clipBias: .003,
+  textureWidth: Math.min(2048, innerWidth * renderer.getPixelRatio()),
+  textureHeight: Math.min(2048, innerHeight * renderer.getPixelRatio()),
+  color: 0x3a3f48,
+});
+reflector.rotation.x = -Math.PI / 2;
+reflector.position.y = -.125;
+scene.add(reflector);
+
+/* ============================================================
+ * GLB 加载（进度 + 重试 + 三级降级）
+ * ============================================================ */
+const loader = new GLTFLoader();
+let car = null;                 // 绑定后的统一车描述
+let modelSource = 'procedural';
+
+function useProcedural(reason) {
+  const desc = __buildCar(THREE, RoundedBoxGeometry);
+  scene.add(desc.root);
+  car = bindCar(desc);
+  modelSource = 'procedural';
+  $('#modelSrc').textContent = '程序化内建模型';
+  if (reason) toast(reason, 3200);
+  finishLoading();
+}
+
+function tryLoadGLB(attempt = 0) {
+  $('#loadMsg').textContent = attempt === 0 ? '拉取 assets/car.glb' : `第 ${attempt + 1} 次重试…`;
+  loader.load('assets/car.glb',
+    (gltf) => {
+      const g = gltf.scene;
+      const namedPivot = g.getObjectByName('DoorL_Pivot');
+      if (namedPivot) {
+        // L1：带分件 pivot 的 GLB（本项目 Node 导出的即为此结构）
+        g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+        const desc = {
+          root: g,
+          parts: {
+            doorL:   { pivot: g.getObjectByName('DoorL_Pivot'),   axis: 'y',      openAngle: 68 * D2R,  isOpen: false },
+            doorR:   { pivot: g.getObjectByName('DoorR_Pivot'),   axis: 'y',      openAngle: -68 * D2R, isOpen: false },
+            windowL: { pivot: g.getObjectByName('WindowL_Pivot'), axis: 'slideY', slide: -.34,          isOpen: false },
+            windowR: { pivot: g.getObjectByName('WindowR_Pivot'), axis: 'slideY', slide: -.34,          isOpen: false },
+            frunk:   { pivot: g.getObjectByName('Frunk_Pivot'),   axis: 'x',      openAngle: -55 * D2R, isOpen: false },
+            decklid: { pivot: g.getObjectByName('Decklid_Pivot'), axis: 'x',      openAngle: -58 * D2R, isOpen: false },
+          },
+          engine: {
+            group: g.getObjectByName('Flat6_Engine'),
+            explodables: [],
+            anchors: {},
+            update: () => {},
+            fan: g.getObjectByName('CoolingFan'),
+            crank: g.getObjectByName('Crankshaft'),
+          },
+          wheelGroups: [], bodyMeshes: [], glassMeshes: [], hotspots: [], materials: {},
+        };
+        g.traverse(o => {
+          if (!o.name) return;
+          if (o.name.startsWith('Hotspot_')) desc.hotspots.push({
+            id: o.name.slice(9), label: '', hint: '', anchor: o,
+          });
+          if (o.name.startsWith('Anchor_')) desc.engine.anchors[o.name.slice(7)] = o;
+          if (o.name === 'Wheel' || o.name === 'CarRoot') { /* 分组 */ }
+        });
+        // 爆炸清单：导出时不可序列化，改用命名查找重建偏移（GLTFExporter 会给重名节点加 _N 后缀）
+        const expNames = ['Crankcase', 'OilSump', 'CoolingFan', 'IntakePlenum', 'CylinderBarrel', 'CylinderHead', 'Turbocharger'];
+        const baseName = (n) => n.replace(/_\d+$/, '');
+        g.traverse(o => {
+          if (!o.name) return;
+          const bn = baseName(o.name);
+          if (!expNames.includes(bn)) return;
+          const off = {
+            Crankcase: [0, -.28, 0], OilSump: [0, -.5, 0],
+            CoolingFan: [0, .48, 0], IntakePlenum: [0, .38, .18],
+            CylinderBarrel: [o.position.x > 0 ? .32 : -.32, 0, 0],
+            CylinderHead: [o.position.x > 0 ? .58 : -.58, .06, 0],
+            Turbocharger: [o.position.x > 0 ? .5 : -.5, -.12, .25],
+          }[bn];
+          desc.engine.explodables.push({ obj: o, base: o.position.clone(), offset: new THREE.Vector3(...off) });
+        });
+        g.traverse(o => {
+          if (baseName(o.name || '') === 'Wheel') desc.wheelGroups.push(o);
+          if (!o.isMesh) return;
+          const m = o.material;
+          if (m && m.transmission > .1) desc.glassMeshes.push(o);
+          // 仅车身覆盖件纳入 xray 集：排除玻璃、车轮子树、发动机子树、描边壳
+          let p = o, inEngine = false, inWheel = false;
+          while (p) {
+            const bn = baseName(p.name || '');
+            if (bn === 'Flat6_Engine') inEngine = true;
+            if (bn === 'Wheel') inWheel = true;
+            p = p.parent;
+          }
+          if (!inEngine && !inWheel && !o.userData.noPick) desc.bodyMeshes.push(o);
+        });
+        // GLB 动画：驱动曲轴与风扇，整车随转速抖动
+        const crank2 = g.getObjectByName('Crankshaft');
+        const fan2 = g.getObjectByName('CoolingFan');
+        let alpha = 0;
+        desc.engine.update = (rpmNorm, dt, running, shake) => {
+          if (running) alpha += dt * rpmNorm * Math.PI * 2 / 60;
+          if (crank2) crank2.rotation.z = alpha;
+          if (fan2) fan2.rotation.y = -alpha * 1.25;
+          desc.root.position.set((Math.random() - .5) * shake, (Math.random() - .5) * shake * .6, 0);
+        };
+        scene.add(g);
+        car = bindCar(desc);
+        modelSource = 'glb';
+        $('#modelSrc').textContent = 'assets/car.glb（分件 GLB · L1）';
+        finishLoading();
+      } else {
+        // L3：合并网格 GLB —— 程序化补全门 / 窗 / 舱盖 / 六缸，文档标注
+        useProcedural('检测到 GLB 为合并网格，已启用程序化分件补全（L3 降级）');
+        modelSource = 'l3';
+        $('#modelSrc').textContent = '合并 GLB + 程序化补件（L3）';
+      }
+    },
+    (ev) => {
+      if (ev.total) {
+        const p = ev.loaded / ev.total;
+        $('#loadBar').style.width = (p * 100).toFixed(0) + '%';
+        $('#loadPct').textContent = (p * 100).toFixed(0) + '%';
+      }
+    },
+    () => {
+      if (attempt < 1) { tryLoadGLB(attempt + 1); return; }
+      $('#loadRetry').style.display = 'flex';
+      $('#loadMsg').textContent = 'GLB 加载失败，可重试或直接使用程序化展车';
+    }
+  );
+}
+$('#btnRetry').onclick = () => { $('#loadRetry').style.display = 'none'; tryLoadGLB(0); };
+$('#btnFallback').onclick = () => useProcedural('已切换为程序化展车');
+
+/* ---------- 统一绑定：部件表 / 热点中文文案 / 可拾取网格 ---------- */
+const PART_META = {
+  doorL:   { label: '左车门',   hint: '铰链式外摆，点击开合' },
+  doorR:   { label: '右车门',   hint: '铰链式外摆，点击开合' },
+  windowL: { label: '左车窗',   hint: '电动车窗，点击升降（IOR 1.5 玻璃）' },
+  windowR: { label: '右车窗',   hint: '电动车窗，点击升降（IOR 1.5 玻璃）' },
+  frunk:   { label: '前备箱盖', hint: '前备箱（Frunk），点击上掀' },
+  decklid: { label: '后置机舱盖', hint: '上掀露出水平对置六缸' },
+  engine:  { label: '水平对置六缸', hint: '点击进入发动机透视模式' },
+  wheelFL: { label: '左前轮 20″', hint: '点击查看车轮转动' },
+  wheelFR: { label: '右前轮 20″', hint: '点击查看车轮转动' },
+  wheelRL: { label: '左后轮 21″', hint: '点击查看车轮转动' },
+  wheelRR: { label: '右后轮 21″', hint: '点击查看车轮转动' },
+};
+const pickMeshes = [];                 // { mesh, partId }
+const outlineMat = new THREE.MeshBasicMaterial({ color: 0xffb86b, side: THREE.BackSide, transparent: true, opacity: .85 });
+
+function bindCar(desc) {
+  // 描边外壳（随部件 transform 运动）
+  // 注意：必须先收集网格再添加 —— traverse 会遍历新加入的子节点，边遍历边 add 会无限套娃
+  for (const [key, p] of Object.entries(desc.parts)) {
+    const meshes = [];
+    p.pivot.traverse(o => { if (o.isMesh && !o.userData.noPick) meshes.push(o); });
+    for (const o of meshes) {
+      const outline = new THREE.Mesh(o.geometry, outlineMat);
+      outline.scale.setScalar(1.045);
+      outline.visible = false;
+      outline.userData.noPick = true;
+      o.add(outline);
+      o.userData.outline = outline;
+      o.userData.partId = key;
+      pickMeshes.push({ mesh: o, partId: key });
+    }
+  }
+  // 热点补全中文文案
+  desc.hotspots.forEach(h => {
+    const meta = PART_META[h.id] || { label: h.id, hint: '点击交互' };
+    h.label = meta.label; h.hint = meta.hint;
+  });
+  buildHotspotDOM(desc);
+  return desc;
+}
+
+/* ============================================================
+ * 部件开合（pivot + easeInOutCubic + 并发）
+ * ============================================================ */
+const PART_DURATION = 850;
+function setPartVisual(p, k) {
+  if (p.axis === 'slideY') p.pivot.position.y = (p.baseY ?? (p.baseY = p.pivot.position.y)) + p.slide * k;
+  else p.pivot.rotation[p.axis] = (p.openAngle ?? 0) * k;
+}
+function togglePart(key) {
+  const p = car.parts[key];
+  if (!p) return;
+  const from = p.isOpen ? 1 : 0, to = p.isOpen ? 0 : 1;
+  p.isOpen = !p.isOpen;
+  addTween({
+    duration: PART_DURATION,
+    onUpdate: (e) => setPartVisual(p, from + (to - from) * e),
+  });
+  syncPartButtons();
+  toast(`${PART_META[key].label} · ${p.isOpen ? '打开' : '关闭'}`);
+}
+function setAll(open) {
+  for (const [key, p] of Object.entries(car.parts)) {
+    if (p.isOpen === open) continue;
+    p.isOpen = open;
+    const from = open ? 0 : 1, to = open ? 1 : 0;
+    addTween({ duration: PART_DURATION, onUpdate: (e) => setPartVisual(p, from + (to - from) * e) });
+  }
+  syncPartButtons();
+  toast(open ? '全部部件打开' : '全部部件关闭');
+}
+function closeAllParts() {
+  for (const [key, p] of Object.entries(car.parts)) {
+    if (!p.isOpen) continue;
+    p.isOpen = false;
+    addTween({ duration: PART_DURATION, onUpdate: (e) => setPartVisual(p, 1 - e) });
+  }
+  syncPartButtons();
+}
+function syncPartButtons() {
+  document.querySelectorAll('[data-part]').forEach(btn => {
+    const p = car.parts[btn.dataset.part];
+    btn.classList.toggle('active', !!p && p.isOpen);
+  });
+}
+document.querySelectorAll('[data-part]').forEach(b => b.onclick = () => togglePart(b.dataset.part));
+$('#btnOpenAll').onclick = () => setAll(true);
+$('#btnCloseAll').onclick = () => setAll(false);
+
+/* ============================================================
+ * 悬停描边 + 中文气泡 + 点击拾取
+ * ============================================================ */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const tooltip = $('#tooltip');
+let hoverId = null;
+
+function setHover(id) {
+  if (hoverId === id) return;
+  if (hoverId && car.parts[hoverId]) car.parts[hoverId].pivot.traverse(o => o.userData.outline && (o.userData.outline.visible = false));
+  hoverId = id;
+  if (id && car.parts[id]) {
+    car.parts[id].pivot.traverse(o => o.userData.outline && (o.userData.outline.visible = true));
+    const m = PART_META[id];
+    $('#ttTitle').textContent = m.label;
+    $('#ttHint').textContent = m.hint;
+    tooltip.classList.add('show');
+    canvas.style.cursor = 'pointer';
+  } else {
+    tooltip.classList.remove('show');
+    canvas.style.cursor = 'grab';
+  }
+}
+function raycastAt(clientX, clientY) {
+  pointer.x = clientX / innerWidth * 2 - 1;
+  pointer.y = -(clientY / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(pickMeshes.map(p => p.mesh), true);
+  for (const h of hits) {
+    let o = h.object;
+    while (o && !o.userData.partId) o = o.parent;
+    if (o && o.userData.partId) return o.userData.partId;
+  }
+  return null;
+}
+let downAt = null;
+canvas.addEventListener('pointermove', (e) => {
+  tooltip.style.left = clamp(e.clientX + 16, 8, innerWidth - 240) + 'px';
+  tooltip.style.top = clamp(e.clientY + 14, 8, innerHeight - 70) + 'px';
+  setHover(raycastAt(e.clientX, e.clientY));
+});
+canvas.addEventListener('pointerdown', (e) => downAt = { x: e.clientX, y: e.clientY });
+canvas.addEventListener('pointerup', (e) => {
+  if (!downAt) return;
+  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+  downAt = null;
+  if (moved > 6) return;
+  const id = raycastAt(e.clientX, e.clientY);
+  if (id) togglePart(id);
+});
+canvas.addEventListener('pointerleave', () => setHover(null));
+
+/* ============================================================
+ * DOM 热点（含遮挡判断）
+ * ============================================================ */
+const hotspotEls = [];
+function buildHotspotDOM(desc) {
+  const wrap = $('#hotspots');
+  wrap.innerHTML = '';
+  for (const h of desc.hotspots) {
+    const el = document.createElement('div');
+    el.className = 'hotspot';
+    el.innerHTML = `<span class="ping"></span><span class="dot"></span>
+      <span class="hlabel glass">${h.label}</span>`;
+    el.onclick = (e) => {
+      e.stopPropagation();
+      if (h.id === 'engine') enterEngineMode();
+      else if (h.id.startsWith('wheel')) spinWheel(h.id);
+      else togglePart(h.id);
+    };
+    wrap.appendChild(el);
+    hotspotEls.push({ el, anchor: h.anchor, id: h.id });
+  }
+}
+const _v3 = new THREE.Vector3();
+function updateHotspots() {
+  if (!car) return;
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera); // 占位，下方逐点判断
+  for (const h of hotspotEls) {
+    h.anchor.getWorldPosition(_v3);
+    const d = camera.position.distanceTo(_v3);
+    _v3.project(camera);
+    const onScreen = _v3.z < 1 && Math.abs(_v3.x) < 1.1 && Math.abs(_v3.y) < 1.1;
+    let occluded = false;
+    if (onScreen) {
+      pointer.copy(_v3).multiplyScalar(.5);   // NDC 居中射线
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObject(car.root, true);
+      occluded = hits.length > 0 && hits[0].distance < d - .18;
+    }
+    const visible = onScreen && !occluded && !(engineMode && h.id !== 'engine' && !h.id.startsWith('wheel'));
+    h.el.style.display = visible ? 'flex' : 'none';
+    h.el.style.left = ((_v3.x * .5 + .5) * innerWidth) + 'px';
+    h.el.style.top = ((-_v3.y * .5 + .5) * innerHeight) + 'px';
+    h.el.classList.toggle('flip', _v3.x > 0);
+  }
+}
+
+/* ---------- 车轮转动演示 ---------- */
+function spinWheel(id) {
+  const idx = { wheelFL: 0, wheelFR: 1, wheelRL: 2, wheelRR: 3 }[id];
+  const w = car.wheelGroups[idx];
+  if (!w) return;
+  const from = w.rotation.x, to = from + Math.PI * 2.2;
+  addTween({ duration: 1300, onUpdate: (e) => w.rotation.x = from + (to - from) * e });
+  toast(PART_META[id].label + ' · 转动演示');
+}
+
+/* ============================================================
+ * 相机：预设视角 / 3s 无操作自动环绕 / 发动机飞机位
+ * ============================================================ */
+const VIEWS = {
+  front3q: new THREE.Vector3(4.7, 2.35, 5.4),
+  side:    new THREE.Vector3(6.1, 1.55, .15),
+  rear3q:  new THREE.Vector3(4.4, 2.2, -5.1),
+  top:     new THREE.Vector3(2.4, 5.9, 2.2),
+};
+let camTween = null;
+function flyCamera(toPos, toTarget = VIEW_TARGET, duration = 1100) {
+  const fromPos = camera.position.clone();
+  const fromTgt = controls.target.clone();
+  controls.autoRotate = false;
+  resetIdle();
+  camTween = { t: 0, duration, fromPos, toPos: toPos.clone(), fromTgt, toTgt: toTarget.clone() };
+}
+function updateCameraTween(dtMs) {
+  if (!camTween) return;
+  camTween.t += dtMs;
+  const k = easeInOutCubic(clamp(camTween.t / camTween.duration, 0, 1));
+  camera.position.lerpVectors(camTween.fromPos, camTween.toPos, k);
+  controls.target.lerpVectors(camTween.fromTgt, camTween.toTgt, k);
+  if (k >= 1) camTween = null;
+}
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => flyCamera(VIEWS[b.dataset.view]));
+
+let idleTimer = 0;
+const IDLE_AUTO_MS = 3000;
+function resetIdle() { idleTimer = 0; controls.autoRotate = false; }
+controls.addEventListener('start', resetIdle);
+
+/* ============================================================
+ * 发动机透视模式（1.2s 飞机位 + 透视/隐藏 + 爆炸 + 标注）
+ * ============================================================ */
+let engineMode = false;
+let explodeT = 0, explodeTarget = 0;
+let xray = true;
+let labelsOn = true;
+const ENGINE_VIEW = new THREE.Vector3(3.1, 3.7, -2.9);
+const ENGINE_TARGET = new THREE.Vector3(0, .55, -1.25);
+
+const LABEL_CN = {
+  fan: '散热风扇', crank: '曲轴', pistonR: '活塞 / 连杆（右列）', pistonL: '活塞 / 连杆（左列）',
+  headR: '气缸盖（右）', headL: '气缸盖（左）', case: '曲轴箱', turboR: '涡轮增压器',
+};
+const labelEls = {};
+
+function enterEngineMode() {
+  if (engineMode || !car) return;
+  engineMode = true;
+  // 自动掀开机舱盖
+  const deck = car.parts.decklid;
+  if (deck && !deck.isOpen) {
+    deck.isOpen = true;
+    addTween({ duration: PART_DURATION, onUpdate: e => setPartVisual(deck, e) });
+    syncPartButtons();
+  }
+  flyCamera(ENGINE_VIEW, ENGINE_TARGET, 1200);
+  $('#enginePanel').classList.add('show');
+  buildEngineLabels();
+  applyBodyMode();
+  toast('发动机透视模式 · 拖动爆炸滑块拆解，Esc 退出');
+}
+function exitEngineMode() {
+  if (!engineMode) return;
+  engineMode = false;
+  $('#explodeSlider').value = 0;
+  explodeTarget = 0;
+  $('#enginePanel').classList.remove('show');
+  Object.values(labelEls).forEach(el => el.remove());
+  Object.keys(labelEls).forEach(k => delete labelEls[k]);
+  applyBodyMode();
+  flyCamera(VIEWS.rear3q, VIEW_TARGET, 1100);
+}
+function buildEngineLabels() {
+  const wrap = $('#engLabels');
+  for (const [key, cn] of Object.entries(LABEL_CN)) {
+    if (!car.engine.anchors[key]) continue;
+    const el = document.createElement('div');
+    el.className = 'eng-label';
+    el.textContent = cn;
+    wrap.appendChild(el);
+    labelEls[key] = el;
+  }
+}
+// 按材质实例存原始状态（多网格共享同一材质时只存一次，避免快照被污染）
+const matOriginal = new WeakMap();
+function applyBodyMode() {
+  if (!car) return;
+  // 先无条件还原上一次改动，保证切换 / 退出都不残留
+  for (const m of car.bodyMeshes) {
+    m.visible = m.userData._xrayVisible ?? true;
+    const mat = m.material;
+    const snap = mat && matOriginal.get(mat);
+    if (snap) {
+      mat.transparent = snap.transparent;
+      mat.opacity = snap.opacity;
+      mat.depthWrite = snap.depthWrite;
+    }
+  }
+  if (!engineMode) return;
+
+  for (const m of car.bodyMeshes) {
+    const mat = m.material;
+    m.userData._xrayVisible = m.visible;
+    if (mat && !matOriginal.has(mat)) {
+      matOriginal.set(mat, { transparent: mat.transparent, opacity: mat.opacity, depthWrite: mat.depthWrite });
+    }
+    const isEngineMesh = m.parent && m.parent.name && String(m.parent.name).includes('Flat6');
+    const isGlass = car.glassMeshes.includes(m);
+    if (xray) {
+      m.visible = true;
+      if (mat && !isGlass) {                    // 玻璃本身已透明，保持其透射观感
+        mat.transparent = true;
+        mat.opacity = .16;
+        mat.depthWrite = false;
+      }
+    } else {
+      // 隐藏：保留玻璃与发动机本体可见
+      m.visible = isGlass || isEngineMesh;
+    }
+  }
+}
+$('#explodeSlider').oninput = (e) => { explodeTarget = e.target.value / 100; };
+$('#btnBodyXray').onclick = () => {
+  xray = true;
+  $('#btnBodyXray').classList.add('active');
+  $('#btnBodyHide').classList.remove('active');
+  applyBodyMode();
+};
+$('#btnBodyHide').onclick = () => {
+  xray = false;
+  $('#btnBodyHide').classList.add('active');
+  $('#btnBodyXray').classList.remove('active');
+  applyBodyMode();
+};
+$('#btnLabelToggle').onclick = () => {
+  labelsOn = !labelsOn;
+  $('#btnLabelToggle').classList.toggle('active', labelsOn);
+  $('#btnLabelToggle').textContent = labelsOn ? '标注开' : '标注关';
+};
+$('#btnExitEngine').onclick = exitEngineMode;
+$('#btnEngineMode').onclick = enterEngineMode;
+
+function updateExplode(dtMs) {
+  if (!car) return;
+  explodeT += (explodeTarget - explodeT) * Math.min(1, dtMs / 140);
+  const k = easeInOutCubic(explodeT);
+  for (const e of car.engine.explodables) {
+    e.obj.position.copy(e.base).addScaledVector(e.offset, k);
+  }
+}
+function updateEngineLabels() {
+  if (!engineMode || !car) return;
+  // 先收集屏幕坐标
+  const items = [];
+  for (const [key, el] of Object.entries(labelEls)) {
+    const a = car.engine.anchors[key];
+    if (!a) continue;
+    a.getWorldPosition(_v3).project(camera);
+    items.push({ key, el, x: (_v3.x * .5 + .5) * innerWidth, y: (-_v3.y * .5 + .5) * innerHeight, behind: _v3.z > 1 });
+  }
+  // 屏幕空间垂直防碰撞：按 y 排序后推开，避免标注叠字
+  const GAP = 30, MARGIN = 60;
+  const sorted = items.filter(i => !i.behind).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].y - sorted[i - 1].y < GAP) sorted[i].y = sorted[i - 1].y + GAP;
+  }
+  for (const it of items) {
+    if (it.behind) { it.el.style.opacity = 0; continue; }
+    it.el.style.opacity = labelsOn ? 1 : 0;
+    it.el.style.left = clamp(it.x, 70, innerWidth - 70) + 'px';
+    it.el.style.top = clamp(it.y, MARGIN, innerHeight - MARGIN) + 'px';
+  }
+}
+
+/* ============================================================
+ * 发动机运转：起动机拖转 → 900rpm 怠速 → 油门/红线
+ * ============================================================ */
+const engineState = {
+  running: false, cranking: false, crankT: 0,
+  rpm: 0, target: 900,
+};
+const REDLINE = 6500, RPM_MAX = 7200, IDLE = 900, CRANK_RPM = 220;
+const rpmSlider = $('#rpmSlider');
+const redArc = $('#redArc');
+
+function startEngine() {
+  ensureAudio();
+  if (engineState.running || engineState.cranking) return;
+  engineState.cranking = true;
+  engineState.crankT = 0;
+  engineState.rpm = 0;
+  $('#btnStart').textContent = '起动机拖转…';
+  $('#btnStart').disabled = true;
+  toast('起动机拖转中…');
+}
+function stopEngine() {
+  engineState.running = false;
+  engineState.cranking = false;
+  engineState.rpm = 0;
+  engineState.target = IDLE;
+  rpmSlider.disabled = true;
+  $('#btnStart').textContent = '启动发动机';
+  $('#btnStart').disabled = false;
+  $('#btnStart').classList.add('primary');
+  stopAudio();
+}
+$('#btnStart').onclick = () => engineState.running || engineState.cranking ? stopEngine() : startEngine();
+rpmSlider.oninput = () => { engineState.target = +rpmSlider.value; };
+rpmSlider.addEventListener('pointerdown', () => { rpmSlider._held = true; });
+window.addEventListener('pointerup', () => { if (rpmSlider._held) { rpmSlider._held = false; rpmSlider.value = IDLE; engineState.target = IDLE; } });
+
+function updateRpm(dt) {
+  const s = engineState;
+  if (s.cranking) {
+    s.crankT += dt;
+    // 拖转 ~1.1s，随后点火爬升至怠速
+    if (s.crankT < 1.1) s.rpm = CRANK_RPM + Math.sin(s.crankT * 22) * 25;
+    else {
+      s.rpm += (IDLE - s.rpm) * dt * 2.6;
+      if (s.rpm > IDLE * .92) {
+        s.cranking = false;
+        s.running = true;
+        s.target = IDLE;
+        rpmSlider.disabled = false;
+        rpmSlider.value = IDLE;
+        $('#btnStart').textContent = '熄火';
+        $('#btnStart').classList.remove('primary');
+        startAudio();
+        toast('发动机点火 · 怠速 900 rpm');
+      }
+    }
+  } else if (s.running) {
+    const tgt = clamp(s.target, 800, RPM_MAX);
+    const rate = tgt > s.rpm ? 3.4 : 1.7;          // 加油快、回落慢
+    s.rpm += (tgt - s.rpm) * Math.min(1, dt * rate);
+    if (!rpmSlider._held && Math.abs(s.target - IDLE) > 30) s.target = IDLE;
+  }
+  // 红线告警
+  const redline = s.rpm >= REDLINE;
+  $('#redlineWarn').classList.toggle('show', redline);
+  $('#gauge').classList.toggle('redline', redline);
+  updateGauge(s.rpm, s.running || s.cranking);
+  return s.rpm;
+}
+
+/* ---------- SVG 转速表 ---------- */
+(function buildGaugeTicks() {
+  const ticks = $('#ticks');
+  const cx = 84, cy = 86, rOut = 64, rInMajor = 54, rInMinor = 58;
+  const a0 = 200 * D2R, a1 = -20 * D2R;
+  for (let i = 0; i <= 16; i++) {
+    const rpm = i * 450;
+    const a = a0 + (a1 - a0) * (i / 16);
+    const major = i % 2 === 0;
+    const r1 = major ? rInMajor : rInMinor;
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', cx + Math.cos(a) * r1);
+    line.setAttribute('y1', cy + Math.sin(a) * r1);
+    line.setAttribute('x2', cx + Math.cos(a) * rOut);
+    line.setAttribute('y2', cy + Math.sin(a) * rOut);
+    line.setAttribute('class', 'tick ' + (major ? 'major' : '') + (rpm >= REDLINE ? ' red' : ''));
+    ticks.appendChild(line);
+    if (major) {
+      const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      t.setAttribute('x', cx + Math.cos(a) * 44);
+      t.setAttribute('y', cy + Math.sin(a) * 44 + 3);
+      t.setAttribute('text-anchor', 'middle');
+      t.textContent = (rpm / 1000).toFixed(1);
+      ticks.appendChild(t);
+    }
+  }
+})();
+function updateGauge(rpm, on) {
+  const k = clamp(rpm / RPM_MAX, 0, 1);
+  const ang = 200 - 220 * k;             // 度
+  $('#needle').style.transform = `rotate(${-ang + 200}deg)`;
+  $('#rpmText').innerHTML = on ? `${Math.round(rpm)} <small>rpm</small>` : 'OFF <small>rpm</small>';
+}
+
+/* ============================================================
+ * WebAudio 原生六缸声浪（交互唤醒 / 可静音）
+ * ============================================================ */
+let actx = null, master = null, engineAudio = null, muted = false;
+function ensureAudio() {
+  if (actx) { actx.resume?.(); return; }
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  master = actx.createGain();
+  master.gain.value = muted ? 0 : .9;
+  master.connect(actx.destination);
+}
+function startAudio() {
+  if (!actx || engineAudio) return;
+  const out = actx.createGain();
+  out.gain.value = 0;
+  const filter = actx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.Q.value = 1.4;
+  // 三振荡器：基频 + 1.5 倍（六缸 3 阶阶次）+ 2 倍
+  const oscs = [];
+  [[1, 'sawtooth', .5], [1.5, 'square', .22], [2, 'triangle', .14]].forEach(([mul, type, vol]) => {
+    const o = actx.createOscillator();
+    o.type = type;
+    const g = actx.createGain();
+    g.gain.value = vol;
+    o.connect(g); g.connect(filter);
+    o.start();
+    oscs.push({ o, mul, g });
+  });
+  // 排气脉冲噪声
+  const buf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const noise = actx.createBufferSource();
+  noise.buffer = buf; noise.loop = true;
+  const nFilter = actx.createBiquadFilter();
+  nFilter.type = 'bandpass'; nFilter.Q.value = .8;
+  const nGain = actx.createGain(); nGain.gain.value = .12;
+  noise.connect(nFilter); nFilter.connect(nGain); nGain.connect(filter);
+  noise.start();
+  // 点火节奏 LFO（每 120° 点火 → 3 次/转）
+  const lfo = actx.createOscillator();
+  const lfoGain = actx.createGain();
+  lfo.frequency.value = 45;
+  lfoGain.gain.value = .08;
+  lfo.connect(lfoGain); lfoGain.connect(out.gain);
+  lfo.start();
+  filter.connect(out); out.connect(master);
+  out.gain.linearRampToValueAtTime(.32, actx.currentTime + .5);
+  engineAudio = { out, filter, oscs, lfo, nFilter, noise, lfoGain };
+}
+function stopAudio() {
+  if (!engineAudio) return;
+  const ea = engineAudio;
+  engineAudio = null;
+  ea.out.gain.cancelScheduledValues(actx.currentTime);
+  ea.out.gain.setTargetAtTime(0, actx.currentTime, .12);
+  setTimeout(() => {
+    [...ea.oscs.map(x => x.o), ea.lfo, ea.noise].forEach(n => { try { n.stop(); } catch {} });
+    try { ea.out.disconnect(); } catch {}
+  }, 600);
+}
+function updateAudio(rpm, cranking) {
+  if (!actx || !engineAudio) return;
+  const base = cranking ? CRANK_RPM : rpm;
+  const f = base / 60;                        // 转/秒
+  const now = actx.currentTime;
+  engineAudio.oscs.forEach(({ o, mul }) =>
+    o.frequency.setTargetAtTime(Math.max(12, f * mul), now, .05));
+  engineAudio.lfo.frequency.setTargetAtTime(Math.max(6, f * 3), now, .05);
+  engineAudio.filter.frequency.setTargetAtTime(220 + rpm * 1.05, now, .06);
+  engineAudio.nFilter.frequency.setTargetAtTime(90 + rpm * .35, now, .08);
+}
+$('#btnMute').onclick = () => {
+  ensureAudio();
+  muted = !muted;
+  $('#btnMute').textContent = muted ? '🔇 已静音' : '🔊 声浪开';
+  if (master) master.gain.setTargetAtTime(muted ? 0 : .9, actx.currentTime, .05);
+};
+
+/* ============================================================
+ * 键盘：Esc 全关 / 退出发动机模式
+ * ============================================================ */
+window.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (engineMode) { exitEngineMode(); return; }
+  closeAllParts();
+});
+
+/* ============================================================
+ * 尺寸 / DPR / 失焦停渲染
+ * ============================================================ */
+function onResize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(dpr);
+  renderer.setSize(innerWidth, innerHeight, false);
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', onResize);
+onResize();
+let pageVisible = true;
+document.addEventListener('visibilitychange', () => {
+  pageVisible = !document.hidden;
+  if (!pageVisible && actx) actx.suspend?.();
+  if (pageVisible && actx && !muted) actx.resume?.();
+});
+
+/* ============================================================
+ * 加载完成 / 首屏
+ * ============================================================ */
+let entered = false;
+function finishLoading() {
+  $('#loading').classList.add('hide');
+  $('#hint').classList.remove('hide');
+}
+$('#btnEnter').onclick = () => {
+  entered = true;
+  ensureAudio();
+  actx.resume?.();
+  $('#hint').classList.add('hide');
+  toast('拖拽环绕 · 点击热点开合部件 · Esc 全关');
+};
+
+/* ============================================================
+ * 主循环
+ * ============================================================ */
+const clock = new THREE.Clock();
+let frame = 0;
+function frameUpdate(dt, doRender = true) {
+  const dtMs = dt * 1000;
+  updateTweens(dtMs);
+  updateCameraTween(dtMs);
+
+  // 自动环绕：3s 无操作
+  if (controls.autoRotate) idleTimer += dtMs;
+  else {
+    idleTimer += dtMs;
+    if (idleTimer > IDLE_AUTO_MS && !camTween) controls.autoRotate = true;
+  }
+  controls.update();
+
+  if (car) {
+    const rpm = updateRpm(dt);
+    const norm = clamp(rpm / RPM_MAX, 0, 1);
+    const shake = (engineState.running ? .004 + norm * .016 : engineState.cranking ? .006 : 0);
+    car.engine.update(
+      engineState.cranking ? CRANK_RPM / RPM_MAX : norm,
+      dt,
+      engineState.running || engineState.cranking,
+      shake
+    );
+    updateAudio(rpm, engineState.cranking);
+    if (engineMode) updateExplode(dtMs);
+    if ((frame++ & 1) === 0) {           // 热点/标注隔帧更新，降开销
+      updateHotspots();
+      updateEngineLabels();
+    }
+  }
+  if (doRender) renderer.render(scene, camera);
+}
+function tick() {
+  requestAnimationFrame(tick);
+  if (!pageVisible) return;
+  frameUpdate(Math.min(clock.getDelta(), .05));
+}
+// 确定性步进（无头自测用：无头环境 rAF 会被冻结）。逻辑逐帧泵、默认不渲染以提速；截图前调 __render。
+window.__step = (seconds, doRender = false) => {
+  for (let t = 0; t < seconds; t += 1 / 60) frameUpdate(1 / 60, doRender);
+};
+window.__render = () => renderer.render(scene, camera);
+
+/* ---------- 启动 ---------- */
+tryLoadGLB();
+tick();
+window.__appReady = true;
+// 测试钩子（无头自测使用，不影响业务）
+window.__testHooks = () => ({ car, engineState, actx, controls, scene, tweens });
+console.log('[showroom] three@0.169.0 数字车展已启动');
+
+// === APPEND POINT ===
+</script>
+</body>
+</html>
